@@ -58,6 +58,12 @@ create table order_items (
   arrived_at timestamptz
 );
 
+create table customers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  salesperson_id uuid not null references salespersons(id) on delete cascade
+);
+
 -- ============================================================
 -- RLS（暫定: ログイン未実装のため anon ロールに全操作を許可）
 -- 認証機能を追加したら、このポリシーは必ず見直すこと。
@@ -71,6 +77,7 @@ alter table product_colors enable row level security;
 alter table product_sizes enable row level security;
 alter table orders enable row level security;
 alter table order_items enable row level security;
+alter table customers enable row level security;
 
 create policy "anon full access" on salespersons for all using (true) with check (true);
 create policy "anon full access" on colors for all using (true) with check (true);
@@ -80,6 +87,7 @@ create policy "anon full access" on product_colors for all using (true) with che
 create policy "anon full access" on product_sizes for all using (true) with check (true);
 create policy "anon full access" on orders for all using (true) with check (true);
 create policy "anon full access" on order_items for all using (true) with check (true);
+create policy "anon full access" on customers for all using (true) with check (true);
 
 -- ============================================================
 -- anon ロールへのテーブルアクセス権付与
@@ -95,6 +103,7 @@ grant select, insert, update, delete on public.product_colors to anon;
 grant select, insert, update, delete on public.product_sizes  to anon;
 grant select, insert, update, delete on public.orders         to anon;
 grant select, insert, update, delete on public.order_items    to anon;
+grant select, insert, update, delete on public.customers      to anon;
 
 -- ============================================================
 -- 初期データ（アプリのサンプルデータと同一内容）
@@ -184,3 +193,8 @@ with o3 as (
 insert into order_items (order_id, product_id, color, size, quantity, status, arrived_at)
 select o3.id, p.id, 'ホワイト', 'LL', 1, '入荷済', now()
 from o3, products p where p.name = '美楽っく';
+
+-- お客様マスター（サンプル発注の顧客名を営業担当ごとに初期登録）
+insert into customers (name, salesperson_id)
+select distinct customer_name, salesperson_id from orders
+where salesperson_id is not null;

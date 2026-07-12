@@ -12,6 +12,7 @@ import { supabase } from "./supabase/client";
 import {
   ARCHIVE_RETENTION_DAYS,
   OTHER_PRODUCT_ID,
+  type CustomerMasterItem,
   type MasterItem,
   type Order,
   type OrderItem,
@@ -56,8 +57,9 @@ type NewOrderInput = {
   items: Omit<OrderItem, "id" | "status" | "arrivedAt">[];
 };
 
-type MasterKind = "products" | "colors" | "sizes" | "salespersons";
-type SimpleMasterKind = Exclude<MasterKind, "products">;
+type MasterKind = "products" | "colors" | "sizes" | "salespersons" | "customers";
+type SimpleMasterKind = Exclude<MasterKind, "products" | "customers">;
+type AddableMasterKind = Exclude<MasterKind, "customers">;
 
 type StoreValue = {
   loading: boolean;
@@ -65,14 +67,16 @@ type StoreValue = {
   colors: MasterItem[];
   sizes: MasterItem[];
   salespersons: MasterItem[];
+  customers: CustomerMasterItem[];
   orders: Order[];
   addOrder: (input: NewOrderInput) => Promise<void>;
   setItemStatus: (orderId: string, itemId: string, status: OrderStatus) => Promise<void>;
   markOrderItemsArrived: (orderId: string, itemIds: string[]) => Promise<void>;
-  addMasterItem: (kind: MasterKind, name: string) => Promise<void>;
+  addMasterItem: (kind: AddableMasterKind, name: string) => Promise<void>;
   removeMasterItem: (kind: MasterKind, id: string) => Promise<void>;
   setProductColors: (productId: string, colorIds: string[]) => Promise<void>;
   setProductSizes: (productId: string, sizeIds: string[]) => Promise<void>;
+  addCustomer: (salespersonId: string, name: string) => Promise<void>;
 };
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -83,18 +87,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [colors, setColors] = useState<MasterItem[]>([]);
   const [sizes, setSizes] = useState<MasterItem[]>([]);
   const [salespersons, setSalespersons] = useState<MasterItem[]>([]);
+  const [customers, setCustomers] = useState<CustomerMasterItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
 
   const loadMasters = useCallback(async () => {
-    const [colorsRes, sizesRes, salespersonsRes, productsRes, productColorsRes, productSizesRes] =
-      await Promise.all([
-        supabase.from("colors").select("id,name"),
-        supabase.from("sizes").select("id,name"),
-        supabase.from("salespersons").select("id,name"),
-        supabase.from("products").select("id,name"),
-        supabase.from("product_colors").select("product_id,color_id"),
-        supabase.from("product_sizes").select("product_id,size_id"),
-      ]);
+    const [
+      colorsRes,
+      sizesRes,
+      salespersonsRes,
+      productsRes,
+      productColorsRes,
+      productSizesRes,
+      customersRes,
+    ] = await Promise.all([
+      supabase.from("colors").select("id,name"),
+      supabase.from("sizes").select("id,name"),
+      supabase.from("salespersons").select("id,name"),
+      supabase.from("products").select("id,name"),
+      supabase.from("product_colors").select("product_id,color_id"),
+      supabase.from("product_sizes").select("product_id,size_id"),
+      supabase.from("customers").select("id,name,salesperson_id"),
+    ]);
 
     const colorsData = colorsRes.data ?? [];
     const sizesData = sizesRes.data ?? [];
@@ -102,6 +115,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const productsData = productsRes.data ?? [];
     const productColorsData = productColorsRes.data ?? [];
     const productSizesData = productSizesRes.data ?? [];
+    const customersData = customersRes.data ?? [];
 
     setColors(colorsData);
     setSizes(sizesData);
@@ -117,6 +131,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .filter((ps) => ps.product_id === p.id)
           .map((ps) => ps.size_id),
       })),
+    );
+    setCustomers(
+      customersData.map((c) => ({ id: c.id, name: c.name, salespersonId: c.salesperson_id })),
     );
   }, []);
 
@@ -292,7 +309,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     salespersons: setSalespersons,
   };
 
-  const addMasterItem = useCallback(async (kind: MasterKind, name: string) => {
+  const addMasterItem = useCallback(async (kind: AddableMasterKind, name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return;
     const { data, error } = await supabase
@@ -320,6 +337,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     if (kind === "products") {
       setProducts((prev) => prev.filter((item) => item.id !== id));
+      return;
+    }
+    if (kind === "customers") {
+      setCustomers((prev) => prev.filter((item) => item.id !== id));
       return;
     }
     setters[kind]((prev) => prev.filter((item) => item.id !== id));
@@ -378,12 +399,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, sizeIds } : p)));
   }, []);
 
+  const addCustomer = useCallback(async (salespersonId: string, name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || !salespersonId) return;
+    const { data, error } = await supabase
+      .from("customers")
+      .insert({ name: trimmed, salesperson_id: salespersonId })
+      .select()
+      .single();
+    if (error || !data) {
+      console.error("お客様の追加に失敗しました", error);
+      return;
+    }
+    setCustomers((prev) => [
+      ...prev,
+      { id: data.id, name: data.name, salespersonId: data.salesperson_id },
+    ]);
+  }, []);
+
   const value: StoreValue = {
     loading,
     products,
     colors,
     sizes,
     salespersons,
+    customers,
     orders,
     addOrder,
     setItemStatus,
@@ -392,6 +432,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     removeMasterItem,
     setProductColors,
     setProductSizes,
+    addCustomer,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

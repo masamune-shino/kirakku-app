@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useStore, type MasterKind } from "@/lib/store";
-import type { MasterItem, ProductMasterItem } from "@/lib/types";
+import type { CustomerMasterItem, MasterItem, ProductMasterItem } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 
-type SimpleSectionKind = Exclude<MasterKind, "products">;
+type SimpleSectionKind = Exclude<MasterKind, "products" | "customers">;
 
 const sections: { kind: SimpleSectionKind; label: string }[] = [
   { kind: "colors", label: "色マスター" },
@@ -206,16 +206,97 @@ function ProductMasterSection({
   );
 }
 
+function CustomerAddForm({ onAdd }: { onAdd: (name: string) => void }) {
+  const [name, setName] = useState("");
+
+  return (
+    <div className="flex items-end gap-2">
+      <div className="flex-1">
+        <TextField
+          label="お客様を追加"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="お客様名を入力"
+        />
+      </div>
+      <Button
+        type="button"
+        className="w-auto px-6"
+        onClick={() => {
+          if (!name.trim()) return;
+          onAdd(name);
+          setName("");
+        }}
+      >
+        追加
+      </Button>
+    </div>
+  );
+}
+
+function CustomerMasterSection({
+  salespersons,
+  customers,
+  onAdd,
+  onRemove,
+}: {
+  salespersons: MasterItem[];
+  customers: CustomerMasterItem[];
+  onAdd: (salespersonId: string, name: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  return (
+    <Card className="space-y-4">
+      <h2 className="text-lg font-extrabold">お客様マスター</h2>
+      {salespersons.length === 0 && (
+        <p className="text-slate-500">営業担当マスターを先に登録してください</p>
+      )}
+      <div className="space-y-5">
+        {salespersons.map((sp) => {
+          const spCustomers = customers.filter((c) => c.salespersonId === sp.id);
+          return (
+            <div key={sp.id} className="rounded-2xl border-2 border-slate-100 p-3">
+              <p className="text-lg font-bold">{sp.name}</p>
+              <ul className="divide-y divide-slate-100">
+                {spCustomers.length === 0 && (
+                  <p className="py-2 text-sm text-slate-500">お客様の登録がありません</p>
+                )}
+                {spCustomers.map((c) => (
+                  <li key={c.id} className="flex items-center justify-between py-2">
+                    <span className="text-lg">{c.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => onRemove(c.id)}
+                      className="text-base font-bold text-red-600 active:text-red-800"
+                    >
+                      削除
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2">
+                <CustomerAddForm onAdd={(name) => onAdd(sp.id, name)} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 export default function MastersPage() {
   const {
     products,
     colors,
     sizes,
     salespersons,
+    customers,
     addMasterItem,
     removeMasterItem,
     setProductColors,
     setProductSizes,
+    addCustomer,
   } = useStore();
 
   const dataByKind: Record<SimpleSectionKind, MasterItem[]> = {
@@ -251,6 +332,13 @@ export default function MastersPage() {
           onRemove={(id) => removeMasterItem(section.kind, id)}
         />
       ))}
+
+      <CustomerMasterSection
+        salespersons={salespersons}
+        customers={customers}
+        onAdd={addCustomer}
+        onRemove={(id) => removeMasterItem("customers", id)}
+      />
 
       <LinkButton href="/" variant="ghost">
         ホームへ戻る

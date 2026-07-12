@@ -12,6 +12,10 @@ export type ProductMasterItem = MasterItem & {
   sizeIds: string[];
 };
 
+export type CustomerMasterItem = MasterItem & {
+  salespersonId: string;
+};
+
 export type OrderItem = {
   id: string;
   productId: string | null; // マスター商品のID。「その他」の場合は null

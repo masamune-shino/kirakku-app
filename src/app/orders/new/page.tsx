@@ -17,7 +17,7 @@ function emptyItem(defaultProductId: string, defaultColor: string, defaultSize: 
 
 export default function NewOrderPage() {
   const router = useRouter();
-  const { products, colors, sizes, salespersons, orders, addOrder } = useStore();
+  const { products, colors, sizes, salespersons, customers, addOrder } = useStore();
 
   const defaultProductId = products[0]?.id ?? OTHER_PRODUCT_ID;
   const defaultProductColor = colors.find((c) => products[0]?.colorIds.includes(c.id));
@@ -35,12 +35,10 @@ export default function NewOrderPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const customerNameSuggestions = useMemo(() => {
-    const matching = orders
-      .filter((o) => o.salespersonId === salespersonId)
-      .sort((a, b) => (a.orderDate < b.orderDate ? 1 : -1));
-    return Array.from(new Set(matching.map((o) => o.customerName)));
-  }, [orders, salespersonId]);
+  const customerNameSuggestions = useMemo(
+    () => customers.filter((c) => c.salespersonId === salespersonId).map((c) => c.name),
+    [customers, salespersonId],
+  );
 
   const updateItem = (index: number, next: DraftItem) => {
     setItems((prev) => prev.map((it, i) => (i === index ? next : it)));
