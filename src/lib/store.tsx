@@ -5,7 +5,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -74,7 +73,6 @@ type StoreValue = {
   removeMasterItem: (kind: MasterKind, id: string) => Promise<void>;
   setProductColors: (productId: string, colorIds: string[]) => Promise<void>;
   setProductSizes: (productId: string, sizeIds: string[]) => Promise<void>;
-  customerNameSuggestions: string[];
 };
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -380,11 +378,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, sizeIds } : p)));
   }, []);
 
-  const customerNameSuggestions = useMemo(
-    () => Array.from(new Set(orders.map((o) => o.customerName))),
-    [orders],
-  );
-
   const value: StoreValue = {
     loading,
     products,
@@ -399,7 +392,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     removeMasterItem,
     setProductColors,
     setProductSizes,
-    customerNameSuggestions,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

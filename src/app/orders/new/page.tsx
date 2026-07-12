@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore, todayStr } from "@/lib/store";
 import { OTHER_PRODUCT_ID } from "@/lib/types";
@@ -9,6 +9,7 @@ import { TextField } from "@/components/ui/TextField";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { OrderItemForm, AddItemButton, type DraftItem } from "@/components/orders/OrderItemForm";
+import { CustomerNameField } from "@/components/orders/CustomerNameField";
 
 function emptyItem(defaultProductId: string, defaultColor: string, defaultSize: string): DraftItem {
   return { productId: defaultProductId, color: defaultColor, size: defaultSize, quantity: 1 };
@@ -16,8 +17,7 @@ function emptyItem(defaultProductId: string, defaultColor: string, defaultSize: 
 
 export default function NewOrderPage() {
   const router = useRouter();
-  const { products, colors, sizes, salespersons, customerNameSuggestions, addOrder } =
-    useStore();
+  const { products, colors, sizes, salespersons, orders, addOrder } = useStore();
 
   const defaultProductId = products[0]?.id ?? OTHER_PRODUCT_ID;
   const defaultProductColor = colors.find((c) => products[0]?.colorIds.includes(c.id));
@@ -34,6 +34,13 @@ export default function NewOrderPage() {
   ]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const customerNameSuggestions = useMemo(() => {
+    const matching = orders
+      .filter((o) => o.salespersonId === salespersonId)
+      .sort((a, b) => (a.orderDate < b.orderDate ? 1 : -1));
+    return Array.from(new Set(matching.map((o) => o.customerName)));
+  }, [orders, salespersonId]);
 
   const updateItem = (index: number, next: DraftItem) => {
     setItems((prev) => prev.map((it, i) => (i === index ? next : it)));
@@ -109,23 +116,11 @@ export default function NewOrderPage() {
             </option>
           ))}
         </SelectField>
-        <TextField
-          label="お客様名"
+        <CustomerNameField
           value={customerName}
-          onChange={(e) => setCustomerName(e.target.value)}
-          onBlur={() => {
-            const trimmed = customerName.trim();
-            if (!trimmed) return;
-            setCustomerName(trimmed.endsWith("様") ? trimmed : `${trimmed}様`);
-          }}
-          placeholder="例：ゆたかや"
-          list="customer-suggestions"
+          onChange={setCustomerName}
+          suggestions={customerNameSuggestions}
         />
-        <datalist id="customer-suggestions">
-          {customerNameSuggestions.map((name) => (
-            <option key={name} value={name} />
-          ))}
-        </datalist>
         <TextField
           label="備考"
           value={memo}
