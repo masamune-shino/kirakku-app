@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "/Users/shinotadashishuu/.nvm/versions/node/v24.18.0/bin/node",
+      "runtimeArgs": ["/Users/shinotadashishuu/Desktop/AI  CAMP２日目/.claude/dev-launcher.js"],
+      "port": 3000
+    }
+  ]
+}
