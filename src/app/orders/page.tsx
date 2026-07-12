@@ -14,20 +14,12 @@ const SearchIcon = () => (
   </svg>
 );
 
-const CalendarIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-    <line x1="16" y1="2" x2="16" y2="6"></line>
-    <line x1="8" y1="2" x2="8" y2="6"></line>
-    <line x1="3" y1="10" x2="21" y2="10"></line>
-  </svg>
-);
-
 export default function OrdersPage() {
   const { orders, products, salespersons, setItemStatus, markOrderItemsArrived } = useStore();
 
   const [searchCustomer, setSearchCustomer] = useState("");
-  const [searchDate, setSearchDate] = useState("");
+  const [searchDateFrom, setSearchDateFrom] = useState("");
+  const [searchDateTo, setSearchDateTo] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const productName = (id: string | null) =>
@@ -41,29 +33,23 @@ export default function OrdersPage() {
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
       if (searchCustomer && !order.customerName.includes(searchCustomer)) return false;
-      if (searchDate && order.orderDate !== searchDate) return false;
+      if (searchDateFrom && order.orderDate < searchDateFrom) return false;
+      if (searchDateTo && order.orderDate > searchDateTo) return false;
       return true;
     }).sort((a, b) => (a.orderDate < b.orderDate ? 1 : -1));
-  }, [orders, searchCustomer, searchDate]);
+  }, [orders, searchCustomer, searchDateFrom, searchDateTo]);
 
   return (
     <div className="flex flex-1 flex-col gap-5 p-5 pb-10">
       <header className="pt-4 flex items-center justify-between">
         <h1 className="text-2xl font-extrabold">発注一覧</h1>
         <div className="flex gap-4">
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={() => setIsSearchOpen(!isSearchOpen)}
             className={`p-2 rounded-full transition-colors ${isSearchOpen ? "bg-blue-100 text-blue-700" : "text-slate-500 hover:bg-slate-100"}`}
           >
             <SearchIcon />
-          </button>
-          <button 
-            type="button" 
-            onClick={() => setIsSearchOpen(!isSearchOpen)}
-            className={`p-2 rounded-full transition-colors ${isSearchOpen ? "bg-blue-100 text-blue-700" : "text-slate-500 hover:bg-slate-100"}`}
-          >
-            <CalendarIcon />
           </button>
         </div>
       </header>
@@ -77,16 +63,26 @@ export default function OrdersPage() {
             placeholder="例: ゆたかや"
           />
           <TextField
-            label="発注日で検索"
+            label="発注日（から）"
             type="date"
-            value={searchDate}
-            onChange={(e) => setSearchDate(e.target.value)}
+            value={searchDateFrom}
+            onChange={(e) => setSearchDateFrom(e.target.value)}
+          />
+          <TextField
+            label="発注日（まで）"
+            type="date"
+            value={searchDateTo}
+            onChange={(e) => setSearchDateTo(e.target.value)}
           />
           <div className="flex justify-end mt-2">
-            <button 
+            <button
               type="button"
               className="text-sm font-bold text-slate-500 underline"
-              onClick={() => { setSearchCustomer(""); setSearchDate(""); }}
+              onClick={() => {
+                setSearchCustomer("");
+                setSearchDateFrom("");
+                setSearchDateTo("");
+              }}
             >
               条件をクリア
             </button>

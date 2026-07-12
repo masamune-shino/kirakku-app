@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { ARCHIVE_RETENTION_DAYS, OTHER_PRODUCT_ID, type Order } from "@/lib/types";
+import { Card } from "@/components/ui/Card";
 import { LinkButton } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import { OrderCard } from "@/components/orders/OrderCard";
@@ -14,20 +15,12 @@ const SearchIcon = () => (
   </svg>
 );
 
-const CalendarIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-    <line x1="16" y1="2" x2="16" y2="6"></line>
-    <line x1="8" y1="2" x2="8" y2="6"></line>
-    <line x1="3" y1="10" x2="21" y2="10"></line>
-  </svg>
-);
-
 export default function PendingOrdersPage() {
   const { orders, products, salespersons, setItemStatus, markOrderItemsArrived } = useStore();
 
   const [searchCustomer, setSearchCustomer] = useState("");
-  const [searchDate, setSearchDate] = useState("");
+  const [searchDateFrom, setSearchDateFrom] = useState("");
+  const [searchDateTo, setSearchDateTo] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const productName = (id: string | null) =>
@@ -41,10 +34,11 @@ export default function PendingOrdersPage() {
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
       if (searchCustomer && !order.customerName.includes(searchCustomer)) return false;
-      if (searchDate && order.orderDate !== searchDate) return false;
+      if (searchDateFrom && order.orderDate < searchDateFrom) return false;
+      if (searchDateTo && order.orderDate > searchDateTo) return false;
       return true;
     });
-  }, [orders, searchCustomer, searchDate]);
+  }, [orders, searchCustomer, searchDateFrom, searchDateTo]);
 
   const pending: { order: Order; items: Order["items"] }[] = useMemo(
     () =>
@@ -57,6 +51,20 @@ export default function PendingOrdersPage() {
         .sort((a, b) => (a.order.orderDate < b.order.orderDate ? 1 : -1)),
     [filteredOrders],
   );
+
+  const productSummary = useMemo(() => {
+    const byProduct = new Map<string, Map<string, number>>(); // productLabel -> size -> qty
+    for (const { items } of pending) {
+      for (const item of items) {
+        const label = productName(item.productId) ?? item.customProductName ?? "その他";
+        const sizeMap = byProduct.get(label) ?? new Map<string, number>();
+        sizeMap.set(item.size, (sizeMap.get(item.size) ?? 0) + item.quantity);
+        byProduct.set(label, sizeMap);
+      }
+    }
+    return byProduct;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending]);
 
   const archived: { order: Order; items: Order["items"] }[] = useMemo(
     () =>
@@ -77,6 +85,7 @@ export default function PendingOrdersPage() {
   const archivedItemCount = archived.reduce((sum, entry) => sum + entry.items.length, 0);
 
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   return (
     <div className="flex flex-1 flex-col gap-5 p-5 pb-10">
@@ -86,19 +95,12 @@ export default function PendingOrdersPage() {
           <p className="text-slate-500 text-sm mt-1">未入荷の商品明細のみ表示</p>
         </div>
         <div className="flex gap-2">
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={() => setIsSearchOpen(!isSearchOpen)}
             className={`p-2 rounded-full transition-colors ${isSearchOpen ? "bg-blue-100 text-blue-700" : "text-slate-500 hover:bg-slate-100"}`}
           >
             <SearchIcon />
-          </button>
-          <button 
-            type="button" 
-            onClick={() => setIsSearchOpen(!isSearchOpen)}
-            className={`p-2 rounded-full transition-colors ${isSearchOpen ? "bg-blue-100 text-blue-700" : "text-slate-500 hover:bg-slate-100"}`}
-          >
-            <CalendarIcon />
           </button>
         </div>
       </header>
@@ -112,22 +114,66 @@ export default function PendingOrdersPage() {
             placeholder="例: ゆたかや"
           />
           <TextField
-            label="発注日で検索"
+            label="発注日（から）"
             type="date"
-            value={searchDate}
-            onChange={(e) => setSearchDate(e.target.value)}
+            value={searchDateFrom}
+            onChange={(e) => setSearchDateFrom(e.target.value)}
+          />
+          <TextField
+            label="発注日（まで）"
+            type="date"
+            value={searchDateTo}
+            onChange={(e) => setSearchDateTo(e.target.value)}
           />
           <div className="flex justify-end mt-2">
-            <button 
+            <button
               type="button"
               className="text-sm font-bold text-slate-500 underline"
-              onClick={() => { setSearchCustomer(""); setSearchDate(""); }}
+              onClick={() => {
+                setSearchCustomer("");
+                setSearchDateFrom("");
+                setSearchDateTo("");
+              }}
             >
               条件をクリア
             </button>
           </div>
         </div>
       )}
+
+      <section className="space-y-3">
+        <button
+          type="button"
+          onClick={() => setSummaryOpen((v) => !v)}
+          className="flex w-full items-center justify-between rounded-2xl border-2 border-slate-200 bg-white px-5 py-4 text-left active:bg-slate-50"
+        >
+          <h2 className="text-lg font-extrabold">商品別集計（発注残）</h2>
+          <span className="ml-3 shrink-0 text-2xl text-slate-400">
+            {summaryOpen ? "▲" : "▼"}
+          </span>
+        </button>
+
+        {summaryOpen && (
+          <Card>
+            {productSummary.size === 0 && <p className="text-slate-500">データがありません</p>}
+            <div className="space-y-4">
+              {Array.from(productSummary.entries()).map(([product, sizeMap]) => (
+                <div key={product}>
+                  <p className="font-bold">{product}</p>
+                  <ul className="ml-4">
+                    {Array.from(sizeMap.entries()).map(([size, qty]) => (
+                      <li key={size} className="flex justify-between border-b border-slate-100 py-1">
+                        <span>{size}</span>
+                        <span className="font-bold">{qty}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+      </section>
 
       <div className="flex flex-col gap-4">
         {pending.length === 0 && (
@@ -141,7 +187,12 @@ export default function PendingOrdersPage() {
             salespersonName={salespersonName(order.salespersonId)}
             productName={productName}
             onSelectStatus={(itemId, s) => setItemStatus(order.id, itemId, s)}
-            onMarkAllArrived={() => markOrderItemsArrived(order.id, items.map(i => i.id))}
+            onMarkAllArrived={() =>
+              markOrderItemsArrived(
+                order.id,
+                items.map((i) => i.id),
+              )
+            }
             markAllText="残りをまとめて入荷済にする"
           />
         ))}
