@@ -30,22 +30,40 @@ export function StatusBadge({
       </button>
 
       {open && (
-        <div className="absolute right-0 z-10 mt-2 flex flex-col gap-2 rounded-2xl border-2 border-slate-200 bg-white p-2 shadow-lg">
-          {ORDER_STATUS_FLOW.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => {
-                onSelect(s);
-                setOpen(false);
-              }}
-              className={`whitespace-nowrap rounded-xl border-2 px-4 py-3 text-base font-bold active:scale-95 ${
-                statusClass[s]
-              } ${s === status ? "ring-2 ring-offset-1 ring-slate-400" : ""}`}
-            >
-              {s}
-            </button>
-          ))}
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5"
+          onClick={() => setOpen(false)}
+        >
+          <div 
+            className="w-full max-w-xs rounded-3xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-4 text-center text-lg font-bold">ステータスを変更</h3>
+            <div className="flex flex-col gap-3">
+              {ORDER_STATUS_FLOW.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => {
+                    onSelect(s);
+                    setOpen(false);
+                  }}
+                  className={`rounded-2xl border-2 px-4 py-4 text-lg font-bold active:scale-95 transition-transform ${
+                    statusClass[s]
+                  } ${s === status ? "ring-2 ring-offset-2 ring-slate-400" : ""}`}
+                >
+                  {s}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="mt-2 rounded-2xl bg-slate-100 px-4 py-4 text-lg font-bold text-slate-700 active:bg-slate-200"
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
