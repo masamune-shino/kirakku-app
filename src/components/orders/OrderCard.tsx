@@ -13,6 +13,7 @@ type OrderCardProps = {
   productName: (id: string | null) => string | null;
   onSelectStatus: (itemId: string, status: OrderStatus) => void;
   onMarkAllArrived?: () => void;
+  onDelete?: () => void;
   markAllText?: string;
   className?: string;
   footerText?: string;
@@ -25,11 +26,13 @@ export function OrderCard({
   productName,
   onSelectStatus,
   onMarkAllArrived,
+  onDelete,
   markAllText = "まとめて入荷済にする",
   className = "",
   footerText,
 }: OrderCardProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   return (
     <Card className={`space-y-3 ${className}`}>
@@ -76,12 +79,58 @@ export function OrderCard({
             </Button>
           )}
 
+          {onDelete && (
+            <Button
+              type="button"
+              variant="danger"
+              onClick={() => setConfirmingDelete(true)}
+            >
+              この発注を削除する
+            </Button>
+          )}
+
           {footerText && (
             <p className="text-sm text-slate-400">
               {footerText}
             </p>
           )}
         </>
+      )}
+
+      {confirmingDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5"
+          onClick={() => setConfirmingDelete(false)}
+        >
+          <div
+            className="w-full max-w-xs rounded-3xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-2 text-center text-lg font-bold">発注を削除しますか？</h3>
+            <p className="mb-4 text-center text-sm text-slate-500">
+              {order.customerName} の発注が完全に削除されます。この操作は取り消せません。
+            </p>
+            <div className="flex flex-col gap-3">
+              <Button
+                type="button"
+                variant="danger"
+                onClick={() => {
+                  onDelete?.();
+                  setConfirmingDelete(false);
+                }}
+              >
+                削除する
+              </Button>
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(false)}
+                className="mt-1 rounded-2xl bg-slate-100 px-4 py-4 text-lg font-bold text-slate-700 active:bg-slate-200"
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </Card>
   );

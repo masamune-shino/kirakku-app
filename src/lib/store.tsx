@@ -70,6 +70,7 @@ type StoreValue = {
   customers: CustomerMasterItem[];
   orders: Order[];
   addOrder: (input: NewOrderInput) => Promise<void>;
+  deleteOrder: (orderId: string) => Promise<void>;
   setItemStatus: (orderId: string, itemId: string, status: OrderStatus) => Promise<void>;
   markOrderItemsArrived: (orderId: string, itemIds: string[]) => Promise<void>;
   addMasterItem: (kind: AddableMasterKind, name: string) => Promise<void>;
@@ -245,6 +246,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       items: itemRows.map(rowToOrderItem),
     };
     setOrders((prev) => [newOrder, ...prev]);
+  }, []);
+
+  const deleteOrder = useCallback(async (orderId: string) => {
+    const { error } = await supabase.from("orders").delete().eq("id", orderId);
+    if (error) {
+      console.error("発注の削除に失敗しました", error);
+      return;
+    }
+    setOrders((prev) => prev.filter((order) => order.id !== orderId));
   }, []);
 
   const setItemStatus = useCallback(
@@ -426,6 +436,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     customers,
     orders,
     addOrder,
+    deleteOrder,
     setItemStatus,
     markOrderItemsArrived,
     addMasterItem,
