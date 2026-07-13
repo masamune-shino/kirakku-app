@@ -73,6 +73,7 @@ type StoreValue = {
   deleteOrder: (orderId: string) => Promise<void>;
   setItemStatus: (orderId: string, itemId: string, status: OrderStatus) => Promise<void>;
   markOrderItemsArrived: (orderId: string, itemIds: string[]) => Promise<void>;
+  markItemsArrived: (itemIds: string[]) => Promise<void>;
   addMasterItem: (kind: AddableMasterKind, name: string) => Promise<void>;
   removeMasterItem: (kind: MasterKind, id: string) => Promise<void>;
   setProductColors: (productId: string, colorIds: string[]) => Promise<void>;
@@ -313,6 +314,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const markItemsArrived = useCallback(async (itemIds: string[]) => {
+    if (itemIds.length === 0) return;
+    const arrivedAt = new Date().toISOString();
+    const { error } = await supabase
+      .from("order_items")
+      .update({ status: "入荷済", arrived_at: arrivedAt })
+      .in("id", itemIds);
+    if (error) {
+      console.error("CSV取り込みによる入荷済処理に失敗しました", error);
+      return;
+    }
+    setOrders((prev) =>
+      prev.map((order) => ({
+        ...order,
+        items: order.items.map((item) =>
+          itemIds.includes(item.id)
+            ? { ...item, status: "入荷済" as const, arrivedAt }
+            : item,
+        ),
+      })),
+    );
+  }, []);
+
   const setters: Record<SimpleMasterKind, React.Dispatch<React.SetStateAction<MasterItem[]>>> = {
     colors: setColors,
     sizes: setSizes,
@@ -439,6 +463,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     deleteOrder,
     setItemStatus,
     markOrderItemsArrived,
+    markItemsArrived,
     addMasterItem,
     removeMasterItem,
     setProductColors,

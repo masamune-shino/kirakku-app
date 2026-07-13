@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useStore } from "@/lib/store";
+import { useMemo, useRef, useState } from "react";
+import { useStore, todayStr } from "@/lib/store";
 import { ARCHIVE_RETENTION_DAYS, OTHER_PRODUCT_ID, type Order } from "@/lib/types";
+import { downloadCsv, parseCsv } from "@/lib/csv";
 import { Card } from "@/components/ui/Card";
 import { LinkButton } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
@@ -15,13 +16,38 @@ const SearchIcon = () => (
   </svg>
 );
 
+const DownloadIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+
+const UploadIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="17 8 12 3 7 8" />
+    <line x1="12" y1="3" x2="12" y2="15" />
+  </svg>
+);
+
 export default function PendingOrdersPage() {
-  const { orders, products, salespersons, setItemStatus, markOrderItemsArrived } = useStore();
+  const {
+    orders,
+    products,
+    salespersons,
+    setItemStatus,
+    markOrderItemsArrived,
+    markItemsArrived,
+  } = useStore();
 
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchDateFrom, setSearchDateFrom] = useState("");
   const [searchDateTo, setSearchDateTo] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [importResult, setImportResult] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const productName = (id: string | null) =>
     id === OTHER_PRODUCT_ID || id === null
@@ -51,6 +77,73 @@ export default function PendingOrdersPage() {
         .sort((a, b) => (a.order.orderDate < b.order.orderDate ? 1 : -1)),
     [filteredOrders],
   );
+
+  const handleExportCsv = () => {
+    const header = [
+      "item_id",
+      "order_id",
+      "発注日",
+      "お客様名",
+      "営業担当",
+      "商品",
+      "色",
+      "サイズ",
+      "数量",
+      "ステータス",
+    ];
+    const rows = pending.flatMap(({ order, items }) =>
+      items.map((item) => [
+        item.id,
+        order.id,
+        order.orderDate,
+        order.customerName,
+        salespersonName(order.salespersonId),
+        productName(item.productId) ?? item.customProductName ?? "その他",
+        item.color,
+        item.size,
+        String(item.quantity),
+        item.status,
+      ]),
+    );
+    downloadCsv(`kirakku_発注残_${todayStr()}.csv`, [header, ...rows]);
+  };
+
+  const handleImportClick = () => {
+    setImportResult("");
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    const text = await file.text();
+    const rows = parseCsv(text);
+    if (rows.length === 0) {
+      setImportResult("CSVにデータがありませんでした。");
+      return;
+    }
+
+    const [header, ...dataRows] = rows;
+    const itemIdIndex = header.indexOf("item_id");
+    if (itemIdIndex === -1) {
+      setImportResult("CSVの形式が正しくありません（item_id列が見つかりません）。");
+      return;
+    }
+
+    const itemIds = dataRows
+      .map((row) => row[itemIdIndex])
+      .filter((id): id is string => !!id);
+
+    if (itemIds.length === 0) {
+      setImportResult("入荷済にする明細がありませんでした。");
+      return;
+    }
+
+    await markItemsArrived(itemIds);
+    setImportResult(`${itemIds.length}件を入荷済にしました。`);
+  };
 
   const productSummary = useMemo(() => {
     const byProduct = new Map<string, Map<string, number>>(); // productLabel -> size -> qty
@@ -97,6 +190,29 @@ export default function PendingOrdersPage() {
         <div className="flex gap-2">
           <button
             type="button"
+            onClick={handleExportCsv}
+            title="発注残をCSV出力"
+            className="p-2 rounded-full transition-colors text-slate-500 hover:bg-slate-100"
+          >
+            <DownloadIcon />
+          </button>
+          <button
+            type="button"
+            onClick={handleImportClick}
+            title="CSVを取り込んで消し込む"
+            className="p-2 rounded-full transition-colors text-slate-500 hover:bg-slate-100"
+          >
+            <UploadIcon />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          <button
+            type="button"
             onClick={() => setIsSearchOpen(!isSearchOpen)}
             className={`p-2 rounded-full transition-colors ${isSearchOpen ? "bg-blue-100 text-blue-700" : "text-slate-500 hover:bg-slate-100"}`}
           >
@@ -104,6 +220,12 @@ export default function PendingOrdersPage() {
           </button>
         </div>
       </header>
+
+      {importResult && (
+        <p className="rounded-2xl bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">
+          {importResult}
+        </p>
+      )}
 
       {isSearchOpen && (
         <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm border border-slate-100">
