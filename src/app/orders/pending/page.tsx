@@ -7,6 +7,7 @@ import { downloadCsv, parseCsv } from "@/lib/csv";
 import { Card } from "@/components/ui/Card";
 import { LinkButton } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
+import { SelectField } from "@/components/ui/SelectField";
 import { OrderCard } from "@/components/orders/OrderCard";
 
 const SearchIcon = () => (
@@ -45,6 +46,7 @@ export default function PendingOrdersPage() {
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchDateFrom, setSearchDateFrom] = useState("");
   const [searchDateTo, setSearchDateTo] = useState("");
+  const [searchSalespersonId, setSearchSalespersonId] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [importResult, setImportResult] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,9 +64,10 @@ export default function PendingOrdersPage() {
       if (searchCustomer && !order.customerName.includes(searchCustomer)) return false;
       if (searchDateFrom && order.orderDate < searchDateFrom) return false;
       if (searchDateTo && order.orderDate > searchDateTo) return false;
+      if (searchSalespersonId && order.salespersonId !== searchSalespersonId) return false;
       return true;
     });
-  }, [orders, searchCustomer, searchDateFrom, searchDateTo]);
+  }, [orders, searchCustomer, searchDateFrom, searchDateTo, searchSalespersonId]);
 
   const pending: { order: Order; items: Order["items"] }[] = useMemo(
     () =>
@@ -235,6 +238,18 @@ export default function PendingOrdersPage() {
             onChange={(e) => setSearchCustomer(e.target.value)}
             placeholder="例: ゆたかや"
           />
+          <SelectField
+            label="営業担当で検索"
+            value={searchSalespersonId}
+            onChange={(e) => setSearchSalespersonId(e.target.value)}
+          >
+            <option value="">すべて</option>
+            {salespersons.map((sp) => (
+              <option key={sp.id} value={sp.id}>
+                {sp.name}
+              </option>
+            ))}
+          </SelectField>
           <TextField
             label="発注日（から）"
             type="date"
@@ -255,6 +270,7 @@ export default function PendingOrdersPage() {
                 setSearchCustomer("");
                 setSearchDateFrom("");
                 setSearchDateTo("");
+                setSearchSalespersonId("");
               }}
             >
               条件をクリア
