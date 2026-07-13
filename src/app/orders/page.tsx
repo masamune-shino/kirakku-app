@@ -15,8 +15,15 @@ const SearchIcon = () => (
 );
 
 export default function OrdersPage() {
-  const { orders, products, salespersons, setItemStatus, markOrderItemsArrived, deleteOrder } =
-    useStore();
+  const {
+    orders,
+    products,
+    salespersons,
+    setItemStatus,
+    markOrderItemsArrived,
+    splitItemArrived,
+    deleteOrder,
+  } = useStore();
 
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchDateFrom, setSearchDateFrom] = useState("");
@@ -104,6 +111,10 @@ export default function OrdersPage() {
               productName={productName}
               onSelectStatus={(itemId, s) => setItemStatus(order.id, itemId, s)}
               onMarkAllArrived={allArrived ? undefined : () => markOrderItemsArrived(order.id, order.items.map(i => i.id))}
+              onPartialArrive={(itemId, qty) => {
+                const item = order.items.find((i) => i.id === itemId);
+                if (item) splitItemArrived(order.id, item, qty);
+              }}
               onDelete={() => deleteOrder(order.id)}
             />
           );

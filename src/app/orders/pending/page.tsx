@@ -41,6 +41,7 @@ export default function PendingOrdersPage() {
     setItemStatus,
     markOrderItemsArrived,
     markItemsArrived,
+    splitItemArrived,
   } = useStore();
 
   const [searchCustomer, setSearchCustomer] = useState("");
@@ -331,6 +332,10 @@ export default function PendingOrdersPage() {
                 items.map((i) => i.id),
               )
             }
+            onPartialArrive={(itemId, qty) => {
+              const item = items.find((i) => i.id === itemId);
+              if (item) splitItemArrived(order.id, item, qty);
+            }}
             markAllText="残りをまとめて入荷済にする"
           />
         ))}

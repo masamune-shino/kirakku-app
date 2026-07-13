@@ -13,6 +13,7 @@ type OrderCardProps = {
   productName: (id: string | null) => string | null;
   onSelectStatus: (itemId: string, status: OrderStatus) => void;
   onMarkAllArrived?: () => void;
+  onPartialArrive?: (itemId: string, quantity: number) => void;
   onDelete?: () => void;
   markAllText?: string;
   className?: string;
@@ -26,6 +27,7 @@ export function OrderCard({
   productName,
   onSelectStatus,
   onMarkAllArrived,
+  onPartialArrive,
   onDelete,
   markAllText = "まとめて入荷済にする",
   className = "",
@@ -65,6 +67,9 @@ export function OrderCard({
                 item={item}
                 productName={productName(item.productId)}
                 onSelectStatus={(s) => onSelectStatus(item.id, s)}
+                onPartialArrive={
+                  onPartialArrive ? (qty) => onPartialArrive(item.id, qty) : undefined
+                }
               />
             ))}
           </ul>

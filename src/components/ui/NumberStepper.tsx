@@ -2,10 +2,12 @@ export function NumberStepper({
   value,
   onChange,
   min = 1,
+  max,
 }: {
   value: number;
   onChange: (next: number) => void;
   min?: number;
+  max?: number;
 }) {
   return (
     <div className="flex items-center gap-3">
@@ -20,7 +22,7 @@ export function NumberStepper({
       <span className="w-12 text-center text-2xl font-bold">{value}</span>
       <button
         type="button"
-        onClick={() => onChange(value + 1)}
+        onClick={() => onChange(max !== undefined ? Math.min(max, value + 1) : value + 1)}
         className="h-12 w-12 shrink-0 rounded-xl bg-slate-200 text-2xl font-bold active:bg-slate-300"
         aria-label="数量を増やす"
       >

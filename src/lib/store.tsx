@@ -74,6 +74,7 @@ type StoreValue = {
   setItemStatus: (orderId: string, itemId: string, status: OrderStatus) => Promise<void>;
   markOrderItemsArrived: (orderId: string, itemIds: string[]) => Promise<void>;
   markItemsArrived: (itemIds: string[]) => Promise<void>;
+  splitItemArrived: (orderId: string, item: OrderItem, arrivedQuantity: number) => Promise<void>;
   addMasterItem: (kind: AddableMasterKind, name: string) => Promise<void>;
   removeMasterItem: (kind: MasterKind, id: string) => Promise<void>;
   setProductColors: (productId: string, colorIds: string[]) => Promise<void>;
@@ -337,6 +338,83 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const splitItemArrived = useCallback(
+    async (orderId: string, item: OrderItem, arrivedQuantity: number) => {
+      if (arrivedQuantity <= 0) return;
+      const arrivedAt = new Date().toISOString();
+
+      if (arrivedQuantity >= item.quantity) {
+        const { error } = await supabase
+          .from("order_items")
+          .update({ status: "入荷済", arrived_at: arrivedAt })
+          .eq("id", item.id);
+        if (error) {
+          console.error("ステータスの更新に失敗しました", error);
+          return;
+        }
+        setOrders((prev) =>
+          prev.map((order) =>
+            order.id === orderId
+              ? {
+                  ...order,
+                  items: order.items.map((i) =>
+                    i.id === item.id ? { ...i, status: "入荷済" as const, arrivedAt } : i,
+                  ),
+                }
+              : order,
+          ),
+        );
+        return;
+      }
+
+      const remainingQuantity = item.quantity - arrivedQuantity;
+      const { error: updateErr } = await supabase
+        .from("order_items")
+        .update({ quantity: remainingQuantity })
+        .eq("id", item.id);
+      if (updateErr) {
+        console.error("数量の分割に失敗しました", updateErr);
+        return;
+      }
+
+      const { data: newRow, error: insertErr } = await supabase
+        .from("order_items")
+        .insert({
+          order_id: orderId,
+          product_id: item.productId === OTHER_PRODUCT_ID ? null : item.productId,
+          custom_product_name: item.customProductName ?? null,
+          color: item.color,
+          size: item.size,
+          quantity: arrivedQuantity,
+          status: "入荷済",
+          arrived_at: arrivedAt,
+        })
+        .select()
+        .single();
+      if (insertErr || !newRow) {
+        console.error("入荷済み明細の作成に失敗しました", insertErr);
+        return;
+      }
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === orderId
+            ? {
+                ...order,
+                items: [
+                  ...order.items.map((i) =>
+                    i.id === item.id ? { ...i, quantity: remainingQuantity } : i,
+                  ),
+                  rowToOrderItem(newRow),
+                ],
+              }
+            : order,
+        ),
+      );
+    },
+    [],
+  );
+
   const setters: Record<SimpleMasterKind, React.Dispatch<React.SetStateAction<MasterItem[]>>> = {
     colors: setColors,
     sizes: setSizes,
@@ -464,6 +542,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setItemStatus,
     markOrderItemsArrived,
     markItemsArrived,
+    splitItemArrived,
     addMasterItem,
     removeMasterItem,
     setProductColors,
