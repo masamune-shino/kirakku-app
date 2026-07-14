@@ -2,8 +2,8 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useStore, todayStr } from "@/lib/store";
-import { ARCHIVE_RETENTION_DAYS, OTHER_PRODUCT_ID, type Order } from "@/lib/types";
-import { downloadCsv, parseCsv } from "@/lib/csv";
+import { ARCHIVE_RETENTION_DAYS, ORDER_STATUS_FLOW, OTHER_PRODUCT_ID, type Order, type OrderItem, type OrderStatus } from "@/lib/types";
+import { buildPendingWorkbook, downloadXlsx, parseXlsxRows } from "@/lib/orderXlsx";
 import { Card } from "@/components/ui/Card";
 import { LinkButton } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
@@ -41,7 +41,7 @@ export default function PendingOrdersPage() {
     salespersons,
     setItemStatus,
     markOrderItemsArrived,
-    markItemsArrived,
+    updateItemsStatus,
     splitItemArrived,
   } = useStore();
 
@@ -88,7 +88,7 @@ export default function PendingOrdersPage() {
     [filteredOrders],
   );
 
-  const handleExportCsv = () => {
+  const handleExportXlsx = async () => {
     const header = [
       "item_id",
       "order_id",
@@ -100,6 +100,7 @@ export default function PendingOrdersPage() {
       "サイズ",
       "数量",
       "ステータス",
+      "入荷数量",
     ];
     const rows = pending.flatMap(({ order, items }) =>
       items.map((item) => [
@@ -113,9 +114,11 @@ export default function PendingOrdersPage() {
         item.size,
         String(item.quantity),
         item.status,
+        "",
       ]),
     );
-    downloadCsv(`kirakku_発注残_${todayStr()}.csv`, [header, ...rows]);
+    const workbook = buildPendingWorkbook(header, rows);
+    await downloadXlsx(`kirakku_発注残_${todayStr()}.xlsx`, workbook);
   };
 
   const handleImportClick = () => {
@@ -128,31 +131,89 @@ export default function PendingOrdersPage() {
     e.target.value = "";
     if (!file) return;
 
-    const text = await file.text();
-    const rows = parseCsv(text);
+    const buffer = await file.arrayBuffer();
+    const rows = await parseXlsxRows(buffer);
     if (rows.length === 0) {
-      setImportResult("CSVにデータがありませんでした。");
+      setImportResult("ファイルにデータがありませんでした。");
       return;
     }
 
     const [header, ...dataRows] = rows;
     const itemIdIndex = header.indexOf("item_id");
-    if (itemIdIndex === -1) {
-      setImportResult("CSVの形式が正しくありません（item_id列が見つかりません）。");
+    const statusIndex = header.indexOf("ステータス");
+    const arrivedQtyIndex = header.indexOf("入荷数量");
+    if (itemIdIndex === -1 || statusIndex === -1) {
+      setImportResult("ファイルの形式が正しくありません（item_id列またはステータス列が見つかりません）。");
       return;
     }
 
-    const itemIds = dataRows
-      .map((row) => row[itemIdIndex])
-      .filter((id): id is string => !!id);
+    const normalizeStatus = (raw: string): OrderStatus | null => {
+      const trimmed = raw.trim();
+      return (ORDER_STATUS_FLOW as string[]).includes(trimmed) ? (trimmed as OrderStatus) : null;
+    };
 
-    if (itemIds.length === 0) {
-      setImportResult("入荷済にする明細がありませんでした。");
+    const findItem = (itemId: string): { orderId: string; item: OrderItem } | null => {
+      for (const order of orders) {
+        const item = order.items.find((i) => i.id === itemId);
+        if (item) return { orderId: order.id, item };
+      }
+      return null;
+    };
+
+    const idsByStatus = new Map<OrderStatus, string[]>();
+    const splitTargets: { orderId: string; item: OrderItem; arrivedQuantity: number }[] = [];
+    let skipped = 0;
+
+    for (const row of dataRows) {
+      const itemId = row[itemIdIndex];
+      if (!itemId) continue;
+
+      const arrivedQtyRaw = arrivedQtyIndex !== -1 ? (row[arrivedQtyIndex] ?? "").trim() : "";
+      const arrivedQuantity = arrivedQtyRaw ? Number(arrivedQtyRaw) : null;
+      const found = findItem(itemId);
+
+      if (found && arrivedQuantity !== null && Number.isFinite(arrivedQuantity) && arrivedQuantity > 0) {
+        if (arrivedQuantity >= found.item.quantity) {
+          const ids = idsByStatus.get("入荷済") ?? [];
+          ids.push(itemId);
+          idsByStatus.set("入荷済", ids);
+          continue;
+        }
+        splitTargets.push({ orderId: found.orderId, item: found.item, arrivedQuantity });
+        continue;
+      }
+
+      const status = normalizeStatus(row[statusIndex] ?? "");
+      if (!status) {
+        skipped += 1;
+        continue;
+      }
+
+      const ids = idsByStatus.get(status) ?? [];
+      ids.push(itemId);
+      idsByStatus.set(status, ids);
+    }
+
+    const updatedCount =
+      [...idsByStatus.values()].reduce((sum, ids) => sum + ids.length, 0) + splitTargets.length;
+    if (updatedCount === 0) {
+      setImportResult("更新する明細がありませんでした。");
       return;
     }
 
-    await markItemsArrived(itemIds);
-    setImportResult(`${itemIds.length}件を入荷済にしました。`);
+    await Promise.all([
+      ...[...idsByStatus.entries()].map(([status, ids]) => updateItemsStatus(ids, status)),
+      ...splitTargets.map(({ orderId, item, arrivedQuantity }) =>
+        splitItemArrived(orderId, item, arrivedQuantity),
+      ),
+    ]);
+
+    const splitNote = splitTargets.length > 0 ? `（うち${splitTargets.length}件は一部入荷）` : "";
+    setImportResult(
+      skipped > 0
+        ? `${updatedCount}件を更新しました${splitNote}（うち${skipped}件はステータス列が不正なためスキップ）。`
+        : `${updatedCount}件を更新しました${splitNote}。`,
+    );
   };
 
   const productSummary = useMemo(() => {
@@ -200,8 +261,8 @@ export default function PendingOrdersPage() {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={handleExportCsv}
-            title="発注残をCSV出力"
+            onClick={handleExportXlsx}
+            title="発注残をExcel出力"
             className="p-2 rounded-full transition-colors text-slate-500 hover:bg-slate-100"
           >
             <DownloadIcon />
@@ -209,7 +270,7 @@ export default function PendingOrdersPage() {
           <button
             type="button"
             onClick={handleImportClick}
-            title="CSVを取り込んで消し込む"
+            title="Excelを取り込んで消し込む"
             className="p-2 rounded-full transition-colors text-slate-500 hover:bg-slate-100"
           >
             <UploadIcon />
@@ -217,7 +278,7 @@ export default function PendingOrdersPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv"
+            accept=".xlsx"
             className="hidden"
             onChange={handleImportFile}
           />

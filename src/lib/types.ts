@@ -1,6 +1,6 @@
-export type OrderStatus = "受付" | "発注済" | "入荷済";
+export type OrderStatus = "受付" | "入荷済";
 
-export const ORDER_STATUS_FLOW: OrderStatus[] = ["受付", "発注済", "入荷済"];
+export const ORDER_STATUS_FLOW: OrderStatus[] = ["受付", "入荷済"];
 
 export type MasterItem = {
   id: string;

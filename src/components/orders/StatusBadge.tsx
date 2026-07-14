@@ -5,7 +5,6 @@ import { ORDER_STATUS_FLOW, type OrderStatus } from "@/lib/types";
 
 const statusClass: Record<OrderStatus, string> = {
   受付: "bg-amber-100 text-amber-800 border-amber-300",
-  発注済: "bg-blue-100 text-blue-800 border-blue-300",
   入荷済: "bg-green-100 text-green-800 border-green-300",
 };
 

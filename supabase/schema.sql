@@ -181,7 +181,7 @@ with o2 as (
   returning id
 )
 insert into order_items (order_id, product_id, color, size, quantity, status)
-select o2.id, p.id, 'ベビーピンク', 'L', 3, '発注済'
+select o2.id, p.id, 'ベビーピンク', 'L', 3, '受付'
 from o2, products p where p.name = '一花（いちか）';
 
 with o3 as (

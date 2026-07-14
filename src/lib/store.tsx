@@ -73,7 +73,7 @@ type StoreValue = {
   deleteOrder: (orderId: string) => Promise<void>;
   setItemStatus: (orderId: string, itemId: string, status: OrderStatus) => Promise<void>;
   markOrderItemsArrived: (orderId: string, itemIds: string[]) => Promise<void>;
-  markItemsArrived: (itemIds: string[]) => Promise<void>;
+  updateItemsStatus: (itemIds: string[], status: OrderStatus) => Promise<void>;
   splitItemArrived: (orderId: string, item: OrderItem, arrivedQuantity: number) => Promise<void>;
   addMasterItem: (kind: AddableMasterKind, name: string) => Promise<void>;
   removeMasterItem: (kind: MasterKind, id: string) => Promise<void>;
@@ -315,15 +315,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const markItemsArrived = useCallback(async (itemIds: string[]) => {
+  const updateItemsStatus = useCallback(async (itemIds: string[], status: OrderStatus) => {
     if (itemIds.length === 0) return;
-    const arrivedAt = new Date().toISOString();
+    const arrivedAt = status === "入荷済" ? new Date().toISOString() : null;
     const { error } = await supabase
       .from("order_items")
-      .update({ status: "入荷済", arrived_at: arrivedAt })
+      .update({ status, arrived_at: arrivedAt })
       .in("id", itemIds);
     if (error) {
-      console.error("CSV取り込みによる入荷済処理に失敗しました", error);
+      console.error("CSV取り込みによるステータス更新に失敗しました", error);
       return;
     }
     setOrders((prev) =>
@@ -331,7 +331,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...order,
         items: order.items.map((item) =>
           itemIds.includes(item.id)
-            ? { ...item, status: "入荷済" as const, arrivedAt }
+            ? { ...item, status, arrivedAt: arrivedAt ?? undefined }
             : item,
         ),
       })),
@@ -541,7 +541,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     deleteOrder,
     setItemStatus,
     markOrderItemsArrived,
-    markItemsArrived,
+    updateItemsStatus,
     splitItemArrived,
     addMasterItem,
     removeMasterItem,
