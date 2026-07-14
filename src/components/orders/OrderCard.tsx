@@ -5,10 +5,12 @@ import type { Order, OrderItem, OrderStatus } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { OrderItemRow } from "@/components/orders/OrderItemRow";
+import { getSalespersonColor } from "@/lib/salespersonColor";
 
 type OrderCardProps = {
   order: Order;
   items: OrderItem[];
+  salespersonId: string;
   salespersonName: string;
   productName: (id: string | null) => string | null;
   onSelectStatus: (itemId: string, status: OrderStatus) => void;
@@ -23,6 +25,7 @@ type OrderCardProps = {
 export function OrderCard({
   order,
   items,
+  salespersonId,
   salespersonName,
   productName,
   onSelectStatus,
@@ -35,18 +38,24 @@ export function OrderCard({
 }: OrderCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const color = getSalespersonColor(salespersonId);
 
   return (
     <Card className={`space-y-3 ${className}`}>
-      <div 
+      <div
         className="cursor-pointer flex items-start justify-between active:opacity-60"
         onClick={() => setIsOpen((v) => !v)}
       >
         <div>
           <p className="text-sm text-slate-500">{order.orderDate}</p>
-          <p className="text-lg font-bold">{order.customerName}</p>
-          <p className="text-sm text-slate-500">
-            営業担当：{salespersonName}
+          <p className={`text-lg font-bold ${color.text}`}>{order.customerName}</p>
+          <p className="mt-1 text-sm text-slate-500">
+            営業担当：
+            <span
+              className={`ml-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold ${color.bg} ${color.text}`}
+            >
+              {salespersonName}
+            </span>
           </p>
         </div>
         <div className="shrink-0 pt-2 text-2xl text-slate-400">

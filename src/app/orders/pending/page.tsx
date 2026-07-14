@@ -323,6 +323,7 @@ export default function PendingOrdersPage() {
             key={order.id}
             order={order}
             items={items}
+            salespersonId={order.salespersonId}
             salespersonName={salespersonName(order.salespersonId)}
             productName={productName}
             onSelectStatus={(itemId, s) => setItemStatus(order.id, itemId, s)}
@@ -372,6 +373,7 @@ export default function PendingOrdersPage() {
                 items={items}
                 className="bg-slate-50"
                 footerText={`入荷済みから${ARCHIVE_RETENTION_DAYS}日を過ぎると自動的に削除されます`}
+                salespersonId={order.salespersonId}
                 salespersonName={salespersonName(order.salespersonId)}
                 productName={productName}
                 onSelectStatus={(itemId, s) => setItemStatus(order.id, itemId, s)}

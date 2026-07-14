@@ -6,6 +6,7 @@ import type { CustomerMasterItem, MasterItem, ProductMasterItem } from "@/lib/ty
 import { Card } from "@/components/ui/Card";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
+import { getSalespersonColor } from "@/lib/salespersonColor";
 
 type SimpleSectionKind = Exclude<MasterKind, "products" | "customers">;
 
@@ -48,19 +49,16 @@ function MasterSection({
           </li>
         ))}
       </ul>
-      <div className="flex items-end gap-2">
-        <div className="flex-1">
-          <TextField
-            label="新規追加"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={`${label}を入力`}
-            id={`${kind}-input`}
-          />
-        </div>
+      <div className="space-y-3">
+        <TextField
+          label="新規追加"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={`${label}を入力`}
+          id={`${kind}-input`}
+        />
         <Button
           type="button"
-          className="w-auto px-6"
           onClick={() => {
             if (!name.trim()) return;
             onAdd(name);
@@ -180,19 +178,16 @@ function ProductMasterSection({
           </div>
         ))}
       </div>
-      <div className="flex items-end gap-2">
-        <div className="flex-1">
-          <TextField
-            label="新規追加"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="商品マスターを入力"
-            id="products-input"
-          />
-        </div>
+      <div className="space-y-3">
+        <TextField
+          label="新規追加"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="商品マスターを入力"
+          id="products-input"
+        />
         <Button
           type="button"
-          className="w-auto px-6"
           onClick={() => {
             if (!name.trim()) return;
             onAdd(name);
@@ -210,18 +205,15 @@ function CustomerAddForm({ onAdd }: { onAdd: (name: string) => void }) {
   const [name, setName] = useState("");
 
   return (
-    <div className="flex items-end gap-2">
-      <div className="flex-1">
-        <TextField
-          label="お客様を追加"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="お客様名を入力"
-        />
-      </div>
+    <div className="space-y-3">
+      <TextField
+        label="お客様を追加"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="お客様名を入力"
+      />
       <Button
         type="button"
-        className="w-auto px-6"
         onClick={() => {
           if (!name.trim()) return;
           onAdd(name);
@@ -254,9 +246,14 @@ function CustomerMasterSection({
       <div className="space-y-5">
         {salespersons.map((sp) => {
           const spCustomers = customers.filter((c) => c.salespersonId === sp.id);
+          const color = getSalespersonColor(sp.id);
           return (
             <div key={sp.id} className="rounded-2xl border-2 border-slate-100 p-3">
-              <p className="text-lg font-bold">{sp.name}</p>
+              <span
+                className={`inline-block rounded-full px-3 py-1 text-lg font-bold ${color.bg} ${color.text}`}
+              >
+                {sp.name}
+              </span>
               <ul className="divide-y divide-slate-100">
                 {spCustomers.length === 0 && (
                   <p className="py-2 text-sm text-slate-500">お客様の登録がありません</p>

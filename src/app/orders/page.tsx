@@ -107,6 +107,7 @@ export default function OrdersPage() {
               key={order.id}
               order={order}
               items={order.items}
+              salespersonId={order.salespersonId}
               salespersonName={salespersonName(order.salespersonId)}
               productName={productName}
               onSelectStatus={(itemId, s) => setItemStatus(order.id, itemId, s)}
