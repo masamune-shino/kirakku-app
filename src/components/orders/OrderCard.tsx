@@ -5,12 +5,12 @@ import type { Order, OrderItem, OrderStatus } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { OrderItemRow } from "@/components/orders/OrderItemRow";
-import { getSalespersonColor } from "@/lib/salespersonColor";
+import { FALLBACK_COLOR, type SalespersonColor } from "@/lib/salespersonColor";
 
 type OrderCardProps = {
   order: Order;
   items: OrderItem[];
-  salespersonId: string;
+  salespersonColor?: SalespersonColor;
   salespersonName: string;
   productName: (id: string | null) => string | null;
   onSelectStatus: (itemId: string, status: OrderStatus) => void;
@@ -25,7 +25,7 @@ type OrderCardProps = {
 export function OrderCard({
   order,
   items,
-  salespersonId,
+  salespersonColor,
   salespersonName,
   productName,
   onSelectStatus,
@@ -38,7 +38,7 @@ export function OrderCard({
 }: OrderCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const color = getSalespersonColor(salespersonId);
+  const color = salespersonColor ?? FALLBACK_COLOR;
 
   return (
     <Card className={`space-y-3 ${className}`}>

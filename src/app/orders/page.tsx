@@ -6,6 +6,7 @@ import { OTHER_PRODUCT_ID } from "@/lib/types";
 import { LinkButton } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import { OrderCard } from "@/components/orders/OrderCard";
+import { buildSalespersonColorMap } from "@/lib/salespersonColor";
 
 const SearchIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -37,6 +38,11 @@ export default function OrdersPage() {
 
   const salespersonName = (id: string) =>
     salespersons.find((sp) => sp.id === id)?.name ?? "(不明)";
+
+  const salespersonColorMap = useMemo(
+    () => buildSalespersonColorMap(salespersons),
+    [salespersons],
+  );
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -107,7 +113,7 @@ export default function OrdersPage() {
               key={order.id}
               order={order}
               items={order.items}
-              salespersonId={order.salespersonId}
+              salespersonColor={salespersonColorMap.get(order.salespersonId)}
               salespersonName={salespersonName(order.salespersonId)}
               productName={productName}
               onSelectStatus={(itemId, s) => setItemStatus(order.id, itemId, s)}

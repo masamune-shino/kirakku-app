@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useStore, type MasterKind } from "@/lib/store";
 import type { CustomerMasterItem, MasterItem, ProductMasterItem } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
-import { getSalespersonColor } from "@/lib/salespersonColor";
+import { buildSalespersonColorMap, FALLBACK_COLOR } from "@/lib/salespersonColor";
 
 type SimpleSectionKind = Exclude<MasterKind, "products" | "customers">;
 
@@ -237,6 +237,8 @@ function CustomerMasterSection({
   onAdd: (salespersonId: string, name: string) => void;
   onRemove: (id: string) => void;
 }) {
+  const colorMap = useMemo(() => buildSalespersonColorMap(salespersons), [salespersons]);
+
   return (
     <Card className="space-y-4">
       <h2 className="text-lg font-extrabold">お客様マスター</h2>
@@ -246,7 +248,7 @@ function CustomerMasterSection({
       <div className="space-y-5">
         {salespersons.map((sp) => {
           const spCustomers = customers.filter((c) => c.salespersonId === sp.id);
-          const color = getSalespersonColor(sp.id);
+          const color = colorMap.get(sp.id) ?? FALLBACK_COLOR;
           return (
             <div key={sp.id} className="rounded-2xl border-2 border-slate-100 p-3">
               <span
